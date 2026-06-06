@@ -1,0 +1,82 @@
+[build-system]
+# Pin below 1.30: hatchling 1.30 emits Metadata-Version 2.5, which current
+# packaging/twine (and PyPI's validator) reject. 2.4 is the accepted version.
+requires = ["hatchling>=1.27,<1.30"]
+build-backend = "hatchling.build"
+
+[project]
+name = "detflow"
+version = "0.1.0"
+description = "Draft detections from plain English and review them like a senior detection engineer — Sigma and Cortex XQL, offline-safe, model-agnostic."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Vinay Vobbilichetty", email = "vinayvobbilichetty11@gmail.com" }]
+keywords = [
+    "sigma", "detection-engineering", "detection-as-code", "siem", "xql",
+    "cortex-xsiam", "mitre-attack", "threat-detection", "cybersecurity", "soc",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    # Sigma is YAML; the deterministic lint needs a parser. Everything else in
+    # the core (overlap, technique extraction) is stdlib-only.
+    "pyyaml>=5.4",
+]
+
+[project.optional-dependencies]
+# The drafting/review LLM path against any OpenAI-compatible chat endpoint.
+# The built-in OpenAIChatModel is a thin requests client; the deterministic
+# lint + overlap core stays stdlib + pyyaml only.
+llm = ["requests>=2.25"]
+# Bring your own LangChain model (and, naturally, langchain-failover) instead of
+# the built-in OpenAI-compatible client. Composes detflow with a failover chain.
+langchain = [
+    "langchain-core>=0.3; python_version >= '3.10'",
+]
+dev = [
+    "requests>=2.25",
+    "pytest>=7",
+    "ruff>=0.4",
+    "build>=1.0",
+    "twine>=5.0",
+    "mypy>=1.8",
+    "types-requests>=2.25",
+    "types-PyYAML>=6.0",
+]
+
+[project.scripts]
+detflow = "detflow.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/vinayvobbili/detflow"
+Repository = "https://github.com/vinayvobbili/detflow"
+Issues = "https://github.com/vinayvobbili/detflow/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/detflow"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/detflow"]
+warn_redundant_casts = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["yaml", "langchain_core.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
