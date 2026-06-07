@@ -5,6 +5,8 @@ review them like a senior detection engineer — in vendor-neutral **Sigma** or
 **Cortex XSIAM XQL**. Offline-safe, model-agnostic, and built to drop into a
 detection-as-code pipeline.
 
+> **Background:** [detflow: A Detection-Engineering Copilot You Can pip install](https://vinayvobbili.github.io/posts/detflow-detection-engineering-copilot/) — why I built it, and the design behind the draft / lint / overlap / review flow.
+
 ```python
 from detflow import draft, lint, review
 
