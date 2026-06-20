@@ -4,8 +4,10 @@
     detflow draft "..." --format cortex-xql
     detflow lint rule.yml
     detflow review rule.yml --catalog catalog.json
+    detflow analyze advisory.txt --export brief
+    detflow analyze advisory.txt --export stix --cve CVE-2024-1234
 
-Drafting/review use the environment model (DETFLOW_LLM_*); lint is offline.
+Drafting/review/analyze use the environment model (DETFLOW_LLM_*); lint is offline.
 """
 from __future__ import annotations
 
@@ -14,7 +16,15 @@ import json
 import sys
 from typing import List, Optional
 
-from detflow import draft, lint, review
+from detflow import (
+    analyze,
+    draft,
+    lint,
+    review,
+    to_brief_markdown,
+    to_navigator_layer,
+    to_stix_bundle,
+)
 from detflow.models import RuleFormat
 
 
@@ -56,6 +66,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_rev.add_argument("--catalog", "-c", help="JSON catalog of existing rules for overlap")
     p_rev.add_argument("--json", action="store_true", help="emit the full result as JSON")
 
+    p_an = sub.add_parser("analyze", help="analyze a threat report into a detection package")
+    p_an.add_argument("path", help="path to the report text, or - for stdin")
+    p_an.add_argument("--cve", action="append", default=[],
+                      help="anchor CVE id (repeatable); CVEs in the text are added automatically")
+    p_an.add_argument("--audience", "-a", default="dr",
+                      choices=["dr", "soc", "purple_team", "red_team", "leadership", "general"],
+                      help="who the intelligence brief is written for")
+    p_an.add_argument("--export", "-e", choices=["brief", "stix", "navigator", "json"],
+                      help="emit an export artifact instead of the human summary")
+
     args = parser.parse_args(argv)
 
     if args.cmd == "draft":
@@ -87,6 +107,30 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"  overlaps: [{o.source}] {o.name} — {o.reason}")
         for i in rev.improvements:
             print(f"  improve: {i}")
+        return 0
+
+    if args.cmd == "analyze":
+        an = analyze(_read(args.path), cves=args.cve, audience=args.audience)
+        if not an.ok:
+            print(f"error: {an.error}", file=sys.stderr)
+            return 1
+        if args.export == "stix":
+            print(json.dumps(to_stix_bundle(an), indent=2))
+        elif args.export == "navigator":
+            print(json.dumps(to_navigator_layer(an), indent=2))
+        elif args.export == "brief":
+            print(to_brief_markdown(an))
+        elif args.export == "json":
+            print(json.dumps(an.to_dict(), indent=2))
+        else:
+            print(an.summary)
+            if an.overview:
+                print("\n" + an.overview)
+            for t in an.techniques:
+                print(f"  {t.technique_id} {t.technique_name} ({t.tactic}, {t.confidence})")
+            for r in an.rules:
+                lint_bit = f" — lint {r.lint.status}" if r.lint else ""
+                print(f"  rule: [{r.rule_type}] {r.rule_name}{lint_bit}")
         return 0
 
     return 2

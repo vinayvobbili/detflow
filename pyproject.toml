@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "detflow"
-version = "0.1.0"
+version = "0.2.0"
 description = "Draft detections from plain English and review them like a senior detection engineer — Sigma and Cortex XQL, offline-safe, model-agnostic."
 readme = "README.md"
 requires-python = ">=3.9"

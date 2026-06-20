@@ -144,3 +144,129 @@ class ReviewResult:
             "lint": self.lint.to_dict() if self.lint else None,
             "llm_authored": self.llm_authored,
         }
+
+
+@dataclass
+class ThreatTechnique:
+    """One ATT&CK technique an adversary could use, mapped from a threat report."""
+
+    technique_id: str            # e.g. "T1190" or "T1059.001"
+    technique_name: str
+    tactic: str                  # e.g. "Initial Access"
+    evidence: str                # <=160 chars: why it maps, grounded in the report
+    confidence: str              # "High" | "Medium" | "Low"
+    order: int = 999             # kill-chain order, 1 = earliest
+
+    def to_dict(self) -> dict:
+        return {"technique_id": self.technique_id, "technique_name": self.technique_name,
+                "tactic": self.tactic, "evidence": self.evidence,
+                "confidence": self.confidence, "order": self.order}
+
+
+@dataclass
+class GeneratedRule:
+    """A detection rule generated for a technique — Sigma, YARA, or Suricata."""
+
+    rule_type: str               # "sigma" | "yara" | "suricata"
+    rule_name: str
+    rule_content: str
+    description: str = ""
+    related_technique: Optional[str] = None   # ATT&CK ID this rule covers
+    lint: Optional[LintReport] = None         # populated for Sigma rules only
+
+    def to_dict(self) -> dict:
+        return {"rule_type": self.rule_type, "rule_name": self.rule_name,
+                "rule_content": self.rule_content, "description": self.description,
+                "related_technique": self.related_technique,
+                "lint": self.lint.to_dict() if self.lint else None}
+
+
+@dataclass
+class IntelBrief:
+    """An audience-targeted intelligence brief for a threat analysis."""
+
+    threat_action: str = ""
+    attack_overview: str = ""
+    detection_focus: str = ""
+    recommended_actions: List[str] = field(default_factory=list)
+    audience: str = "dr"
+    audience_label: str = "Detection & Response"
+
+    def to_dict(self) -> dict:
+        return {"threat_action": self.threat_action, "attack_overview": self.attack_overview,
+                "detection_focus": self.detection_focus,
+                "recommended_actions": list(self.recommended_actions),
+                "audience": self.audience, "audience_label": self.audience_label}
+
+
+@dataclass
+class ThreatAnalysis:
+    """A grounded, analyst-grade breakdown of a threat / advisory report.
+
+    Maps the report to ATT&CK techniques, generates detection rules, and frames
+    an intelligence brief. Export it to STIX 2.1, an ATT&CK Navigator layer, or a
+    Markdown brief (see :mod:`detflow.analyze`).
+    """
+
+    title: str = ""
+    severity: Severity = Severity.MEDIUM
+    confidence: str = "Low"               # overall analysis confidence
+    tlp: str = "AMBER"                     # RED | AMBER | GREEN | CLEAR
+    overview: str = ""
+    techniques: List[ThreatTechnique] = field(default_factory=list)
+    rules: List[GeneratedRule] = field(default_factory=list)
+    brief: IntelBrief = field(default_factory=IntelBrief)
+    cves: List[str] = field(default_factory=list)
+    threat_actor_name: Optional[str] = None
+    threat_actor_confidence: Optional[str] = None
+    generated_at: str = ""
+    llm_authored: bool = False
+    error: Optional[str] = None
+
+    @property
+    def ok(self) -> bool:
+        return self.error is None and bool(self.techniques or self.rules or self.overview)
+
+    @property
+    def summary(self) -> str:
+        """One-line human summary (severity · TLP · technique/rule counts · …)."""
+        by_type: dict = {}
+        for r in self.rules:
+            t = (r.rule_type or "rule").lower()
+            by_type[t] = by_type.get(t, 0) + 1
+        rule_bits = ", ".join(f"{n} {t.title()}" for t, n in by_type.items())
+        sigma_warn = sum(1 for r in self.rules
+                         if (r.rule_type or "").lower() == "sigma" and r.lint and not r.lint.ok)
+        bits = [
+            f"Severity {self.severity.value}",
+            f"TLP:{self.tlp}",
+            f"{len(self.techniques)} ATT&CK technique(s)",
+            f"{len(self.rules)} detection rule(s)" + (f" ({rule_bits})" if rule_bits else ""),
+        ]
+        if sigma_warn:
+            bits.append(f"{sigma_warn} Sigma rule(s) need review")
+        if self.brief.audience_label:
+            bits.append(f"brief: {self.brief.audience_label}")
+        if self.threat_actor_name:
+            bits.append(f"actor: {self.threat_actor_name}")
+        return " · ".join(bits)
+
+    def to_dict(self) -> dict:
+        return {
+            "title": self.title,
+            "severity": self.severity.value,
+            "confidence": self.confidence,
+            "tlp": self.tlp,
+            "overview": self.overview,
+            "techniques": [t.to_dict() for t in self.techniques],
+            "rules": [r.to_dict() for r in self.rules],
+            "brief": self.brief.to_dict(),
+            "cves": list(self.cves),
+            "threat_actor_name": self.threat_actor_name,
+            "threat_actor_confidence": self.threat_actor_confidence,
+            "generated_at": self.generated_at,
+            "llm_authored": self.llm_authored,
+            "error": self.error,
+            "ok": self.ok,
+            "summary": self.summary,
+        }

@@ -1,7 +1,8 @@
 # detflow
 
-**A detection-engineering copilot.** Draft detections from plain English and
-review them like a senior detection engineer — in vendor-neutral **Sigma** or
+**A detection-engineering copilot.** Draft detections from plain English,
+review them like a senior detection engineer, and turn a raw threat report into
+a full detection package — in vendor-neutral **Sigma** (plus YARA/Suricata) or
 **Cortex XSIAM XQL**. Offline-safe, model-agnostic, and built to drop into a
 detection-as-code pipeline.
 
@@ -25,6 +26,31 @@ for o in r.overlaps:
     print("already covered by:", o.name, "—", o.reason)
 ```
 
+## From a threat report to a detection package
+
+`analyze` takes raw CTI — a CVE advisory, a threat writeup, an IOC/TTP dump —
+and produces a grounded, analyst-grade package: ATT&CK techniques (tactic-ordered,
+each with evidence + confidence), generated **Sigma + YARA + Suricata** rules
+(Sigma linted in place), severity/TLP, and an audience-targeted intelligence
+brief. Export it to the standards your CTI tools already speak.
+
+```python
+from detflow import analyze, to_stix_bundle, to_navigator_layer, to_brief_markdown
+
+a = analyze(advisory_text, audience="dr")   # needs a model (see Models below)
+print(a.summary)                            # Severity high · TLP:AMBER · 4 techniques · 3 rules …
+for t in a.techniques:
+    print(t.technique_id, t.technique_name, t.confidence)
+
+to_stix_bundle(a, producer="acme-soc")      # STIX 2.1 bundle (dict)
+to_navigator_layer(a)                        # ATT&CK Navigator v4.5 layer (dict)
+to_brief_markdown(a)                          # shareable Markdown brief (str)
+```
+
+The report text is treated as untrusted input — the prompt hardens against
+embedded instructions (prompt injection) and against inventing technique IDs or
+IOCs. `analyze` never raises; with no model it returns a result with `error` set.
+
 ## Why
 
 The Sigma ecosystem is strong at *compiling* rules (pySigma) and *running* them,
@@ -37,9 +63,11 @@ but the authoring and review steps are still manual. detflow fills that gap:
   already run.
 - **Review** — a structured, senior-engineer assessment: quality, false-positive
   risk *and why*, ATT&CK coverage, gaps, concrete improvements, and a verdict.
+- **Analyze** — go the other direction: from a threat report to mapped ATT&CK
+  techniques, generated detection rules, and STIX 2.1 / Navigator / brief exports.
 
-It's the human-in-the-loop front end of a detection-as-code workflow: draft →
-lint → review → (you) merge.
+It's the human-in-the-loop front end of a detection-as-code workflow: analyze /
+draft → lint → review → (you) merge.
 
 ## Install
 
@@ -106,6 +134,8 @@ detflow draft "powershell with an encoded command from a word macro"
 detflow draft "..." --format cortex-xql
 detflow lint rule.yml
 detflow review rule.yml --catalog catalog.json --json
+detflow analyze advisory.txt --export brief
+detflow analyze advisory.txt --export stix --cve CVE-2024-12345
 ```
 
 ## Design

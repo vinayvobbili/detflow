@@ -26,6 +26,13 @@ The model is pluggable: set ``DETFLOW_LLM_API_KEY`` / ``DETFLOW_LLM_BASE_URL`` /
 ``DETFLOW_LLM_MODEL`` for any OpenAI-compatible endpoint, or pass ``model=`` —
 including a LangChain failover chain via :class:`detflow.llm.LangChainModel`.
 """
+from detflow.analyze import (
+    analyze,
+    audience_options,
+    to_brief_markdown,
+    to_navigator_layer,
+    to_stix_bundle,
+)
 from detflow.draft import draft
 from detflow.lint import lint, lint_sigma, lint_xql
 from detflow.llm import (
@@ -37,16 +44,20 @@ from detflow.llm import (
 from detflow.models import (
     DraftResult,
     Finding,
+    GeneratedRule,
+    IntelBrief,
     LintReport,
     Overlap,
     ReviewResult,
     RuleFormat,
     Severity,
+    ThreatAnalysis,
+    ThreatTechnique,
 )
 from detflow.overlap import find_overlaps, techniques_from_sigma
 from detflow.review import review
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # Verbs
@@ -55,8 +66,14 @@ __all__ = [
     "lint_sigma",
     "lint_xql",
     "review",
+    "analyze",
     "find_overlaps",
     "techniques_from_sigma",
+    # CTI exports
+    "to_stix_bundle",
+    "to_navigator_layer",
+    "to_brief_markdown",
+    "audience_options",
     # Models / config
     "DetectionModel",
     "OpenAIChatModel",
@@ -68,6 +85,10 @@ __all__ = [
     "Finding",
     "ReviewResult",
     "Overlap",
+    "ThreatAnalysis",
+    "ThreatTechnique",
+    "GeneratedRule",
+    "IntelBrief",
     "RuleFormat",
     "Severity",
     "__version__",
