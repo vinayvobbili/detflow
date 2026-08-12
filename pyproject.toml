@@ -80,3 +80,12 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+[tool.ruff.lint]
+# State the rule set explicitly rather than inheriting ruff's defaults. CI does
+# `pip install ruff` unpinned, and ruff has widened its defaults since this tree
+# was last green — 106 findings appeared on code nobody had touched, which is a
+# red build caused by a tool release rather than by a change. These are the
+# pyflakes + pycodestyle-error rules the code was actually written against;
+# widening the set should be a deliberate edit.
+select = ["E4", "E7", "E9", "F"]
